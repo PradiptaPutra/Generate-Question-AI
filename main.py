@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from groq import Groq
 import json
+import logging
 
 app = Flask(__name__)
 
@@ -58,34 +59,30 @@ def parse_and_format_questions(validated_questions_text, question_type):
     questions = []
     individual_questions = validated_questions_text.split("\n\n")
     
-    for q in individual_questions:
+    for i, q in enumerate(individual_questions):
         lines = q.split("\n")
         question = next((line.split(": ", 1)[1] for line in lines if line.startswith("Pertanyaan")), "")
         
         if question_type == "pilihan ganda":
-            answers = [line.split(". ", 1)[1] for line in lines if line[0].isalpha() and line[1] == "."]
+            options = [line.split(". ", 1)[1] for line in lines if line[0].isalpha() and line[1] == "."]
             correct_answer = next((line.split(": ", 1)[1] for line in lines if line.startswith("Jawaban: ")), "").strip()
             explanation = next((line.split(": ", 1)[1] for line in lines if line.startswith("Penjelasan: ")), "")
-            
-            formatted_answers = [
-                {
-                    "text": answer,
-                    "isCorrect": (chr(65 + i) == correct_answer)
-                } for i, answer in enumerate(answers)
-            ]
-            
+
             questions.append({
-                "question": question,
-                "answers": formatted_answers,
-                "explanation": explanation
+                "no_soal": i + 1,
+                "pertanyaan": question,
+                "opsi_pilihan_jawaban": options,
+                "kunci_jawaban": correct_answer,
+                "penjelasan": explanation
             })
         elif question_type == "essay":
             answer = next((line.split(": ", 1)[1] for line in lines if line.startswith("Jawaban: ")), "")
             rubric = next((line.split(": ", 1)[1] for line in lines if line.startswith("Rubrik Penilaian: ")), "")
             questions.append({
-                "question": question,
-                "answer": answer,
-                "rubric": rubric
+                "no_soal": i + 1,
+                "pertanyaan": question,
+                "jawaban": answer,
+                "rubrik_penilaian": rubric
             })
     
     return questions
