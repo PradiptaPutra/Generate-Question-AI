@@ -1,4 +1,4 @@
-"use client"; // Add this at the very top of the file
+"use client"; // Ensure this component runs as a client component
 
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import { Button } from "@/components/ui/button";
@@ -23,15 +23,14 @@ interface FormData {
   text: string;
 }
 
+interface Question {
+  question: string;
+  choices?: Array<{ option: string; text: string }>;
+  correct_answer?: string;
+}
+
 interface ResponseData {
-  questions?: Array<{
-    question: string;
-    choices?: Array<{ option: string; text: string }>;
-    correct_answer?: string;
-    explanation?: string;
-    sample_answer?: string;
-    rubric?: string;
-  }>;
+  questions?: Array<Question>;
   error?: string;
 }
 
@@ -45,6 +44,7 @@ const QuestionGenerator: React.FC = () => {
     text: '',
   });
   const [response, setResponse] = useState<ResponseData | null>(null);
+  const [userAnswers, setUserAnswers] = useState<{ [key: number]: string }>({});
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -55,6 +55,13 @@ const QuestionGenerator: React.FC = () => {
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files ? e.target.files[0] : null;
     setFormData(prevState => ({ ...prevState, pdfFile: file }));
+  };
+
+  const handleAnswerChange = (questionIndex: number, value: string) => {
+    setUserAnswers(prevAnswers => ({
+      ...prevAnswers,
+      [questionIndex]: value,
+    }));
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -86,6 +93,40 @@ const QuestionGenerator: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderQuestions = () => {
+    if (!response?.questions) return null;
+
+    return response.questions.map((question, index) => (
+      <div key={index} className="space-y-4">
+        <p className="font-semibold">{index + 1}. {question.question}</p>
+        {formData.questionType === 'multiple_choice' && question.choices && (
+          question.choices.map((choice, choiceIndex) => (
+            <div key={choiceIndex} className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id={`question-${index}-choice-${choiceIndex}`}
+                name={`question-${index}`}
+                value={choice.option}
+                onChange={() => handleAnswerChange(index, choice.option)}
+              />
+              <label htmlFor={`question-${index}-choice-${choiceIndex}`}>
+                {choice.text}
+              </label>
+            </div>
+          ))
+        )}
+        {formData.questionType === 'essay' && (
+          <Textarea
+            name={`question-${index}`}
+            placeholder="Write your answer here..."
+            value={userAnswers[index] || ''}
+            onChange={(e) => handleAnswerChange(index, e.target.value)}
+          />
+        )}
+      </div>
+    ));
   };
 
   return (
@@ -177,9 +218,7 @@ const QuestionGenerator: React.FC = () => {
             <CardTitle className="text-xl font-semibold">Soal yang Dihasilkan:</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="bg-gray-100 p-4 rounded-md overflow-x-auto whitespace-pre-wrap">
-              {JSON.stringify(response, null, 2)}
-            </pre>
+            {renderQuestions()}
           </CardContent>
         </Card>
       )}
