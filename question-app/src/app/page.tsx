@@ -1,3 +1,5 @@
+"use client"; // Ensure this component runs as a client component
+import LandingPage from "@/components/LandingPage";
 import QuestionGenerator from "@/components/QuestionGenerator";
 
 export default function Home() {
@@ -7,7 +9,8 @@ export default function Home() {
         <h1 className="text-4xl font-bold text-center mb-8 text-blue-800">
           Pembuat Soal Ujian Indonesia
         </h1>
-        <QuestionGenerator />
+        {/* You can conditionally render LandingPage or QuestionGenerator based on your routing logic */}
+        <LandingPage />
       </div>
     </main>
   );

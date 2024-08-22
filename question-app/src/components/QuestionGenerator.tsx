@@ -1,4 +1,4 @@
-"use client"; // Ensure this component runs as a client component
+"use client";
 
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader } from 'react-feather'; // Icon for loading animation
 
 interface FormData {
   subject: string;
@@ -27,11 +28,17 @@ interface Question {
   question: string;
   choices?: Array<{ option: string; text: string }>;
   correct_answer?: string;
+  explanation?: string;
 }
 
 interface ResponseData {
   questions?: Array<Question>;
   error?: string;
+}
+
+interface UserAnswer {
+  selectedAnswer: string;
+  isCorrect: boolean;
 }
 
 const QuestionGenerator: React.FC = () => {
@@ -44,8 +51,12 @@ const QuestionGenerator: React.FC = () => {
     text: '',
   });
   const [response, setResponse] = useState<ResponseData | null>(null);
-  const [userAnswers, setUserAnswers] = useState<{ [key: number]: string }>({});
+  const [userAnswers, setUserAnswers] = useState<{ [key: number]: UserAnswer }>({});
   const [loading, setLoading] = useState<boolean>(false);
+  const [score, setScore] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState<boolean[]>([]);
+  const [editedQuestions, setEditedQuestions] = useState<Question[]>([]);
+
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -57,10 +68,11 @@ const QuestionGenerator: React.FC = () => {
     setFormData(prevState => ({ ...prevState, pdfFile: file }));
   };
 
-  const handleAnswerChange = (questionIndex: number, value: string) => {
+  const handleAnswerChange = (questionIndex: number, selectedAnswer: string) => {
+    const isCorrect = response?.questions?.[questionIndex]?.correct_answer === selectedAnswer;
     setUserAnswers(prevAnswers => ({
       ...prevAnswers,
-      [questionIndex]: value,
+      [questionIndex]: { selectedAnswer, isCorrect },
     }));
   };
 
@@ -95,35 +107,48 @@ const QuestionGenerator: React.FC = () => {
     }
   };
 
+  const handleScoreCalculation = () => {
+    if (!response?.questions) return;
+
+    let correctCount = 0;
+    response.questions.forEach((question, index) => {
+      if (userAnswers[index]?.isCorrect) {
+        correctCount++;
+      }
+    });
+    setScore(correctCount);
+  };
+
   const renderQuestions = () => {
     if (!response?.questions) return null;
 
     return response.questions.map((question, index) => (
       <div key={index} className="space-y-4">
         <p className="font-semibold">{index + 1}. {question.question}</p>
-        {formData.questionType === 'multiple_choice' && question.choices && (
-          question.choices.map((choice, choiceIndex) => (
-            <div key={choiceIndex} className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id={`question-${index}-choice-${choiceIndex}`}
-                name={`question-${index}`}
-                value={choice.option}
-                onChange={() => handleAnswerChange(index, choice.option)}
-              />
-              <label htmlFor={`question-${index}-choice-${choiceIndex}`}>
-                {choice.text}
-              </label>
-            </div>
-          ))
-        )}
+        {question.choices && question.choices.map((choice, choiceIndex) => (
+          <div key={choiceIndex} className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id={`question-${index}-choice-${choiceIndex}`}
+              name={`question-${index}`}
+              value={choice.option}
+              onChange={() => handleAnswerChange(index, choice.option)}
+            />
+            <label htmlFor={`question-${index}-choice-${choiceIndex}`}>
+              {choice.text}
+            </label>
+          </div>
+        ))}
         {formData.questionType === 'essay' && (
           <Textarea
-            name={`question-${index}`}
-            placeholder="Write your answer here..."
-            value={userAnswers[index] || ''}
-            onChange={(e) => handleAnswerChange(index, e.target.value)}
+            placeholder="Jawaban Anda"
+            className="w-full"
           />
+        )}
+        {userAnswers[index] && formData.questionType === 'multiple_choice' && (
+          <p className={`text-sm ${userAnswers[index].isCorrect ? 'text-green-500' : 'text-red-500'}`}>
+            {userAnswers[index].isCorrect ? 'Correct!' : `Incorrect! ${question.explanation}`}
+          </p>
         )}
       </div>
     ));
@@ -206,8 +231,13 @@ const QuestionGenerator: React.FC = () => {
                 onChange={handleInputChange}
               />
             </div>
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? 'Membuat Soal...' : 'Buat Soal'}
+            <Button type="submit" disabled={loading} className="w-full flex justify-center items-center">
+              {loading ? (
+                <>
+                  <Loader className="animate-spin mr-2" />
+                  Membuat Soal...
+                </>
+              ) : 'Buat Soal'}
             </Button>
           </form>
         </CardContent>
@@ -219,6 +249,16 @@ const QuestionGenerator: React.FC = () => {
           </CardHeader>
           <CardContent>
             {renderQuestions()}
+            {formData.questionType === 'multiple_choice' && (
+              <Button onClick={handleScoreCalculation} className="mt-4">
+                Hitung Skor
+              </Button>
+            )}
+            {score !== null && (
+              <p className="mt-4 text-lg font-bold">
+                Skor Anda: {score}/{response.questions?.length}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
